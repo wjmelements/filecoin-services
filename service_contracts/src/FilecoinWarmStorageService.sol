@@ -82,8 +82,8 @@ contract FilecoinWarmStorageService is
     uint256 public immutable operatorCommissionBps;
 
     // Commission rates for different service types
-    uint256 public immutable basicServiceCommissionBps; // 0% for basic service (no CDN add-on)
-    uint256 public immutable cdnServiceCommissionBps; // 0% for CDN service
+    uint256 public basicServiceCommissionBps; // 0% for basic service (no CDN add-on)
+    uint256 public cdnServiceCommissionBps; // 0% for CDN service
 
     // Mapping from client address to clientDataSetId
     mapping(address => uint256) public clientDataSetIDs;
@@ -206,42 +206,29 @@ contract FilecoinWarmStorageService is
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
+    constructor(
         address _pdpVerifierAddress,
         address _paymentsContractAddress,
         address _usdfcTokenAddress,
         address _filCDNAddress,
-        uint256 _initialOperatorCommissionBps,
-        uint64 _maxProvingPeriod,
-        uint256 _challengeWindowSize
-    ) public initializer {
-        __Ownable_init(msg.sender);
-        __UUPSUpgradeable_init();
-        __EIP712_init("FilecoinWarmStorageService", "1");
+        uint256 _initialOperatorCommissionBps
+    ) {
+        _disableInitializers();
+
+        require(_usdfcTokenAddress != address(0), "USDFC token address cannot be zero");
+        usdfcTokenAddress = _usdfcTokenAddress;
+
+        require(_filCDNAddress != address(0), "Filecoin CDN address cannot be zero");
+        filCDNAddress = _filCDNAddress;
 
         require(_pdpVerifierAddress != address(0), "PDP verifier address cannot be zero");
-        require(_paymentsContractAddress != address(0), "Payments contract address cannot be zero");
-        require(_usdfcTokenAddress != address(0), "USDFC token address cannot be zero");
-        require(_filCDNAddress != address(0), "Filecoin CDN address cannot be zero");
-        require(_initialOperatorCommissionBps <= COMMISSION_MAX_BPS, "Commission exceeds maximum");
-        require(_maxProvingPeriod > 0, "Max proving period must be greater than zero");
-        require(_challengeWindowSize > 0 && _challengeWindowSize < _maxProvingPeriod, "Invalid challenge window size");
-
         pdpVerifierAddress = _pdpVerifierAddress;
-        paymentsContractAddress = _paymentsContractAddress;
-        usdfcTokenAddress = _usdfcTokenAddress;
-        filCDNAddress = _filCDNAddress;
-        operatorCommissionBps = _initialOperatorCommissionBps;
-        maxProvingPeriod = _maxProvingPeriod;
-        challengeWindowSize = _challengeWindowSize;
 
-        // Set commission rates: 0% for basic, 0% for service w/ CDN add-on
-        basicServiceCommissionBps = 0; // 0%
-        cdnServiceCommissionBps = 0; // 0%
+        require(_paymentsContractAddress != address(0), "Payments contract address cannot be zero");
+        paymentsContractAddress = _paymentsContractAddress;
+
+        require(_initialOperatorCommissionBps <= COMMISSION_MAX_BPS, "Commission exceeds maximum");
+        operatorCommissionBps = _initialOperatorCommissionBps;
 
         // Read token decimals from the USDFC token contract
         tokenDecimals = IERC20Metadata(_usdfcTokenAddress).decimals();
@@ -251,6 +238,26 @@ contract FilecoinWarmStorageService is
         DATA_SET_CREATION_FEE = (1 * 10 ** tokenDecimals) / 10; // 0.1 USDFC
         CACHE_MISS_PRICE_PER_TIB_PER_MONTH = (1 * 10 ** tokenDecimals) / 2; // 0.5 USDFC
         CDN_PRICE_PER_TIB_PER_MONTH = (1 * 10 ** tokenDecimals) / 2; // 0.5 USDFC
+    }
+
+    function initialize(
+        uint64 _maxProvingPeriod,
+        uint256 _challengeWindowSize
+    ) public initializer {
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        __EIP712_init("FilecoinWarmStorageService", "1");
+
+        require(_maxProvingPeriod > 0, "Max proving period must be greater than zero");
+        require(_challengeWindowSize > 0 && _challengeWindowSize < _maxProvingPeriod, "Invalid challenge window size");
+
+        maxProvingPeriod = _maxProvingPeriod;
+        challengeWindowSize = _challengeWindowSize;
+
+        // Set commission rates: 0% for basic, 0% for service w/ CDN add-on
+        basicServiceCommissionBps = 0; // 0%
+        cdnServiceCommissionBps = 0; // 0%
+
         nextServiceProviderId = 1;
     }
 
